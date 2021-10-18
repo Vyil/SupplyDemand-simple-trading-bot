@@ -1,0 +1,181 @@
+
+#property copyright "Djim"
+#property link      ""
+#property version   "1.00"
+#property strict
+
+int counter =0 ;
+double supplyZones[100];
+double demandZones[100];
+
+double supplyCloseZones[100];
+double demandOpenZones[100];
+
+int OnInit()
+  {
+   Print("Executing SupDemandV1 EA");
+   ArrayInitialize(demandZones,EMPTY_VALUE);
+   ArrayInitialize(demandOpenZones,EMPTY_VALUE);
+   
+   ArrayInitialize(supplyZones,EMPTY_VALUE);
+   ArrayInitialize(supplyCloseZones,EMPTY_VALUE);
+   //ObjectSetText("text_object","SupplyDemandV1",10,"Times New Roman",Green);
+   FindZones();
+   return(INIT_SUCCEEDED);
+  }
+
+void OnDeinit(const int reason)
+  {
+
+   
+  }
+
+void OnTick()
+  {
+  //CleanAllObjects();
+  counter++;
+  FindZones();
+  CheckIfCanTrade();
+   
+  }
+  
+  
+
+void FindZones()
+{
+   //Check on current tick, if previous bar, engulfed bar before it & was reverse (buy/sell)
+   double previousBarOpen = Open[1];
+   double previousBarClose = Close[1];
+   double previousBarHigh = High[1];
+   double previousBarLow = Low[1];
+   
+   double sdBarOpen = Open[2];
+   double sdBarClose = Close[2];
+   double sdBarHigh = High[2];
+   double sdBarLow = Low[2];
+   
+   //Check if sd bar is bullish to get supply area
+   if(IsBullishBar(sdBarClose,sdBarOpen))
+   {
+      //If true it's supply zone, Check if then the previous(next) bar is bearish
+      if(!IsBullishBar(previousBarClose,previousBarOpen))
+      {
+         //If false we can continue to check if the bullish sdBar is engulfed by previousbar
+         if(BullishBarIsEngulfed(sdBarLow,previousBarClose))
+         {
+            //if true it's valid supply zone, loop through array to place it
+            Print("Valid supply zone");
+            for(int x=0;x<100;x++)
+            {
+               if(supplyZones[x] == EMPTY_VALUE){
+               ArrayFill(supplyZones,x,1,sdBarLow);
+               ArrayFill(supplyCloseZones,x,1,sdBarHigh);
+                  //supplyZones[x] = sdBarLow;
+                  //supplyCloseZones = sdBarHigh;
+               }
+            }
+         }
+         
+      } else {
+      Print("Not valid");
+      }
+   } else {
+      //If not bullish its bearish bar, is demand zone, check if next bar is bullish
+      if(IsBullishBar(previousBarClose,previousBarOpen))
+      {
+         //if true check if it engulfed
+         if(BearishBarIsEngulfed(sdBarHigh,previousBarClose))
+         {
+            //if true it's valid demand zone, loop through array to place it
+            Print("Valid demand zone");
+            for(int x=0;x<100;x++)
+            {
+               if(demandZones[x] == EMPTY_VALUE){
+               ArrayFill(demandZones,x,1,sdBarHigh);
+               ArrayFill(demandOpenZones,x,1,sdBarLow);
+                  //demandZones[x] = sdBarHigh;
+                  //demandOpenZones = sdBarLow;
+               }
+            }
+         }
+      }
+   }
+    
+}
+  
+bool IsBullishBar(double close, double open)
+   {
+   //Print("Close: "+close + " Open:"+open);
+      if(close > open){
+         return true;
+      } else {
+         return false;
+      }
+   }
+   
+bool BearishBarIsEngulfed(double high, double close)
+   {
+      if(close > high){
+         return true;
+      } else {;
+         return false;
+      }
+   }
+   
+   bool BullishBarIsEngulfed(double low, double close)
+   {
+      if(close < low){
+         return true;
+      } else {;
+         return false;
+      }
+   }
+ 
+ void CheckIfCanTrade()
+ {
+   double previousBarLow = Low[1];
+   double previousBarClose = Close[1];
+   double previousBarHigh = High[1];
+   
+   //Check if previous bar wicked into demand   
+   for(int x =0;x<100;x++)
+   {
+      if(previousBarLow < demandZones[x])
+      {
+         if(previousBarClose > demandZones[x])
+         {
+         Print("Buy_order");
+            //Wicked in, closed out, buy
+            //int buyTicket = OrderSend(_Symbol,OP_BUY,0.1,Ask,3,demandOpenZones[x]-10,Ask+(Ask-demandOpenZones[x]),NULL,0,0,Green);
+            int buyTicket = OrderSend(_Symbol,OP_BUY,0.01,Ask,3,Ask-2,Ask+3,NULL,0,0,Green);
+            
+            //Remove the value of demandZone
+            ArrayFill(demandZones,x,1,EMPTY_VALUE);
+            ArrayFill(demandOpenZones,x,1,EMPTY_VALUE);
+         }
+      }
+   }
+   
+   
+   //Check if previous bar wicked into supply  
+   
+   for(int m =0;m<100;m++)
+   {
+      if(previousBarHigh > supplyZones[m])
+      {
+         if(previousBarClose < supplyZones[m])
+         {
+         Print("Sell_order");
+            //Wicked in, closed out, sell
+            //int sellTicket = OrderSend(_Symbol,OP_SELL,0.1,Bid,3,supplyCloseZones[m]-10,Bid-(supplyCloseZones[m]-Bid),NULL,0,0,Green);
+            int sellTicket = OrderSend(_Symbol,OP_SELL,0.01,Bid,3,Bid+2,Bid-3,NULL,0,0,Green);
+            
+            //Remove the value of supplyZone
+            ArrayFill(supplyZones,m,1,EMPTY_VALUE);
+            ArrayFill(supplyCloseZones,m,1,EMPTY_VALUE);
+         }
+      }
+   }
+ }
+
+
